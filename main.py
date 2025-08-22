@@ -18,8 +18,8 @@ class Spell:
     def __init__(self, name: str, damage: int = 0, mana_cost: int = 0,
                  heal: int = 0, atk_float_buff: float = 0.0, atk_percent_buff: float = 0.0,
                  atk_float_debuff: float = 0.0, atk_percent_debuff: float = 0.0,
-                 armor_buff: int = 0, armor_debuff: int = 0, duration: int = 0,
-                 end_turn: bool = True):
+                 armor_buff: int = 0, armor_debuff: int = 0, evade_buff: float = 0, evade_debuff: float = 0,
+                 duration: int = 0, end_turn: bool = True, aimed_to_self: bool = True, aimed_to: int = 0):
         self.name = name
         self.damage = damage
         self.mana_cost = mana_cost
@@ -30,8 +30,12 @@ class Spell:
         self.atk_percent_debuff = atk_percent_debuff  # Процентный дебафф к атаке врага
         self.armor_buff = armor_buff  # Абсолютный бафф к броне
         self.armor_debuff = armor_debuff  # Абсолютный дебафф к броне врага
+        self.evade_buff = evade_buff  # Множитель к уклонениям
+        self.evade_debuff = evade_debuff  # Множитель к уклонениям
         self.duration = duration  # Длительность эффекта в ходах
         self.end_turn = end_turn  # Завершает ли ход после использования
+        self.aimed_to = aimed_to  # направлено на кого (в бою всем юнитам будут присваиваться индексы)
+        self.aimed_to_self = aimed_to_self  # если True, то нельзя использовать на других юнитов + заклинание применяется сразу, без уточнения от системы на кого использовать
 
     def __str__(self):
         effects = []
@@ -53,16 +57,22 @@ class Spell:
             effects.append(f"бафф брони: {self.armor_buff:+}")
         if self.armor_debuff != 0:
             effects.append(f"дебафф брони врага: {self.armor_debuff:+}")
+        if self.evade_buff != 0:
+            effects.append(f"бафф уклонения: {self.evade_buff:+.1f}")
+        if self.evade_debuff != 0:
+            effects.append(f"дебафф уклонения: {self.evade_debuff:+.1f}")
         if self.duration > 0:
             effects.append(f"длительность: {self.duration} ходов")
         if not self.end_turn:
             effects.append("не завершает ход")
+        if not self.aimed_to_self:
+            effects.append("направлено на врага")
 
         return f"{self.name} ({', '.join(effects)})"
 
 
 class Enemy:
-    def __init__(self, name: str, hp: int, damage: int, mana: int,
+    def __init__(self, name: str, hp: int, damage: int, mana: int, evade: float,
                  monster_class: MonsterClass, spells: List[Spell], armor: int = 0):
         self.name = name
         self.hp = hp
@@ -73,6 +83,7 @@ class Enemy:
         self.armor = armor
         self.monster_class = monster_class
         self.spells = spells
+        self.evade = evade
 
     def __str__(self):
         spells_info = "\n  ".join([str(spell) for spell in self.spells])
@@ -81,6 +92,7 @@ class Enemy:
                 f"  Урон: {self.damage}\n"
                 f"  Мана: {self.mana}/{self.max_mana}\n"
                 f"  Броня: {self.armor}\n"
+                f"  Уклонение: {self.evade:.1f}%\n"
                 f"  Заклинания:\n  {spells_info}")
 
     @classmethod
@@ -108,7 +120,9 @@ class Enemy:
                                                       spell_data.get('atk_float_debuff', 0) != 0,
                                                       spell_data.get('atk_percent_debuff', 0) != 0,
                                                       spell_data.get('armor_buff', 0) != 0,
-                                                      spell_data.get('armor_debuff', 0) != 0
+                                                      spell_data.get('armor_debuff', 0) != 0,
+                                                      spell_data.get('evade_buff', 0) != 0,
+                                                      spell_data.get('evade_debuff', 0) != 0
                                                   ]) else 0)
 
                         spell = Spell(
@@ -122,8 +136,11 @@ class Enemy:
                             atk_percent_debuff=spell_data.get('atk_percent_debuff', 0.0),
                             armor_buff=spell_data.get('armor_buff', 0),
                             armor_debuff=spell_data.get('armor_debuff', 0),
+                            evade_buff=spell_data.get('evade_buff', 0),
+                            evade_debuff=spell_data.get('evade_debuff', 0),
                             duration=duration,
-                            end_turn=spell_data.get('end_turn', True)
+                            end_turn=spell_data.get('end_turn', True),
+                            aimed_to_self=spell_data.get('aimed_to_self', True)
                         )
                         spells.append(spell)
 
@@ -133,6 +150,7 @@ class Enemy:
                         hp=enemy_data['hp'],
                         damage=enemy_data['damage'],
                         mana=enemy_data['mana'],
+                        evade=enemy_data.get('evade', 0),
                         armor=enemy_data.get('armor', 0),
                         monster_class=monster_class,
                         spells=spells
@@ -210,6 +228,21 @@ class Character:
         ]
     }
 
+    _starting_spells = {
+        'warrior': [
+            Spell("Силовой удар", damage=20, mana_cost=15, end_turn=True, aimed_to_self=False),
+            Spell("Боевой клич", atk_float_buff=5, duration=2, mana_cost=20, end_turn=True, aimed_to_self=True)
+        ],
+        'mage': [
+            Spell("Огненный шар", damage=25, mana_cost=20, end_turn=True, aimed_to_self=False),
+            Spell("Ледяная броня", armor_buff=5, duration=3, mana_cost=15, end_turn=True, aimed_to_self=True)
+        ],
+        'assassin': [
+            Spell("Смертельный удар", damage=22, mana_cost=18, end_turn=True, aimed_to_self=False),
+            Spell("Теневой клинок", atk_float_buff=3, evade_buff=0.1, duration=2, mana_cost=20, end_turn=True, aimed_to_self=True)
+        ]
+    }
+
     def __init__(self, name, char_class):
         self.name = name
 
@@ -269,8 +302,14 @@ class Character:
         # Инвентарь
         self.inventory = []
 
+        # Заклинания
+        self.spells = []
+
         # Добавляем стартовые предметы
         self.add_starting_items()
+
+        # Добавляем стартовые заклинания
+        self.add_starting_spells()
 
         # Экипируем стартовое оружие
         self.equip_starting_weapon()
@@ -285,6 +324,12 @@ class Character:
         if self.char_class in self._starting_items:
             for item in self._starting_items[self.char_class]:
                 self.inventory.append(item)
+
+    def add_starting_spells(self):
+        # Добавляем стартовые заклинания в зависимости от класса
+        if self.char_class in self._starting_spells:
+            for spell in self._starting_spells[self.char_class]:
+                self.spells.append(spell)
 
     def equip_starting_weapon(self):
         # Экипируем стартовое оружие
@@ -549,6 +594,15 @@ class Character:
             item_name = item.name if item else "Пусто"
             print(f"{slot.value}: {item_name}")
 
+    def show_spells(self):
+        print("\n--- ЗАКЛИНАНИЯ ---")
+        if not self.spells:
+            print("Заклинаний нет")
+            return
+
+        for i, spell in enumerate(self.spells):
+            print(f"{i + 1}. {spell}")
+
     def __str__(self):
         # Получаем название основного атрибута на русском
         attr_names = {'str': 'сила', 'dex': 'ловкость', 'mag': 'магия'}
@@ -557,6 +611,9 @@ class Character:
         # Получаем бонусы от экипировки
         bonuses = self.calculate_equipment_bonuses()
 
+        # Формируем информацию о заклинаниях
+        spells_info = "\n  ".join([str(spell) for spell in self.spells]) if self.spells else "Нет заклинаний"
+
         return (f"{self.name} ({self.char_class}):\n"
                 f"  Характеристики: сила {self.strength}, ловкость {self.dexterity}, магия {self.magic}\n"
                 f"  Основной атрибут: {main_attr_name}\n"
@@ -564,7 +621,8 @@ class Character:
                 f"  Мана: {self.mana}/{self.get_effective_mana()}\n"
                 f"  Шанс уворота: {self.get_effective_dodge_chance():.1f}% (множитель класса: {self.dodge_multiplier})\n"
                 f"  Защита: {bonuses['defense']}\n"
-                f"  Урон: {self.calculate_damage():.1f}")
+                f"  Урон: {self.calculate_damage():.1f}\n"
+                f"  Заклинания:\n  {spells_info}")
 
 
 # Пример использования:
@@ -584,6 +642,7 @@ def create_character():
         print(character)
         character.show_equipment()
         character.show_inventory()
+        character.show_spells()
         return character
     except ValueError as e:
         print(f"Ошибка: {e}")
@@ -594,9 +653,12 @@ if __name__ == '__main__':
     # Создание персонажа
     hero = create_character()
 
+    print()
     # Загружаем врагов из JSON файла
     enemies = Enemy.load_from_json('enemies.json')
 
     for enemy in enemies:
-        print(enemy)
         print("\n" + "=" * 40 + "\n")
+        print(enemy)
+
+    print("\n" + "=" * 40 + "\n")
