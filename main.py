@@ -1,5 +1,153 @@
 import math
 from enum import Enum
+import json
+from typing import Dict, List
+
+
+class MonsterClass(Enum):
+    S = "S"
+    A = "A"
+    B = "B"
+    C = "C"
+    D = "D"
+    E = "E"
+    F = "F"
+
+
+class Spell:
+    def __init__(self, name: str, damage: int = 0, mana_cost: int = 0,
+                 heal: int = 0, atk_float_buff: float = 0.0, atk_percent_buff: float = 0.0,
+                 atk_float_debuff: float = 0.0, atk_percent_debuff: float = 0.0,
+                 armor_buff: int = 0, armor_debuff: int = 0, duration: int = 0,
+                 end_turn: bool = True):
+        self.name = name
+        self.damage = damage
+        self.mana_cost = mana_cost
+        self.heal = heal
+        self.atk_float_buff = atk_float_buff  # Плавающий бафф к атаке
+        self.atk_percent_buff = atk_percent_buff  # Процентный бафф к атаке
+        self.atk_float_debuff = atk_float_debuff  # Плавающий дебафф к атаке врага
+        self.atk_percent_debuff = atk_percent_debuff  # Процентный дебафф к атаке врага
+        self.armor_buff = armor_buff  # Абсолютный бафф к броне
+        self.armor_debuff = armor_debuff  # Абсолютный дебафф к броне врага
+        self.duration = duration  # Длительность эффекта в ходах
+        self.end_turn = end_turn  # Завершает ли ход после использования
+
+    def __str__(self):
+        effects = []
+        if self.damage > 0:
+            effects.append(f"урон: {self.damage}")
+        if self.mana_cost > 0:
+            effects.append(f"мана: {self.mana_cost}")
+        if self.heal > 0:
+            effects.append(f"лечение: {self.heal}")
+        if self.atk_float_buff != 0:
+            effects.append(f"бафф атаки: {self.atk_float_buff:+}")
+        if self.atk_percent_buff != 0:
+            effects.append(f"бафф атаки: {self.atk_percent_buff * 100:+.1f}%")
+        if self.atk_float_debuff != 0:
+            effects.append(f"дебафф атаки врага: {self.atk_float_debuff:+}")
+        if self.atk_percent_debuff != 0:
+            effects.append(f"дебафф атаки врага: {self.atk_percent_debuff * 100:+.1f}%")
+        if self.armor_buff != 0:
+            effects.append(f"бафф брони: {self.armor_buff:+}")
+        if self.armor_debuff != 0:
+            effects.append(f"дебафф брони врага: {self.armor_debuff:+}")
+        if self.duration > 0:
+            effects.append(f"длительность: {self.duration} ходов")
+        if not self.end_turn:
+            effects.append("не завершает ход")
+
+        return f"{self.name} ({', '.join(effects)})"
+
+
+class Enemy:
+    def __init__(self, name: str, hp: int, damage: int, mana: int,
+                 monster_class: MonsterClass, spells: List[Spell], armor: int = 0):
+        self.name = name
+        self.hp = hp
+        self.max_hp = hp
+        self.damage = damage
+        self.mana = mana
+        self.max_mana = mana
+        self.armor = armor
+        self.monster_class = monster_class
+        self.spells = spells
+
+    def __str__(self):
+        spells_info = "\n  ".join([str(spell) for spell in self.spells])
+        return (f"{self.name} (Класс: {self.monster_class.value})\n"
+                f"  Здоровье: {self.hp}/{self.max_hp}\n"
+                f"  Урон: {self.damage}\n"
+                f"  Мана: {self.mana}/{self.max_mana}\n"
+                f"  Броня: {self.armor}\n"
+                f"  Заклинания:\n  {spells_info}")
+
+    @classmethod
+    def load_from_json(cls, file_path: str) -> List['Enemy']:
+        enemies = []
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+
+                for enemy_data in data.get('enemies', []):
+                    # Получаем класс монстра
+                    monster_class = MonsterClass[enemy_data['monster_class']]
+
+                    # Устанавливаем длительность баффов/дебаффов для монстров класса F
+                    default_duration = 2 if monster_class == MonsterClass.F else 1
+
+                    # Создаем список заклинаний
+                    spells = []
+                    for spell_data in enemy_data.get('spells', []):
+                        # Устанавливаем длительность по умолчанию для баффов/дебаффов
+                        duration = spell_data.get('duration',
+                                                  default_duration if any([
+                                                      spell_data.get('atk_float_buff', 0) != 0,
+                                                      spell_data.get('atk_percent_buff', 0) != 0,
+                                                      spell_data.get('atk_float_debuff', 0) != 0,
+                                                      spell_data.get('atk_percent_debuff', 0) != 0,
+                                                      spell_data.get('armor_buff', 0) != 0,
+                                                      spell_data.get('armor_debuff', 0) != 0
+                                                  ]) else 0)
+
+                        spell = Spell(
+                            name=spell_data['name'],
+                            damage=spell_data.get('damage', 0),
+                            mana_cost=spell_data.get('mana_cost', 0),
+                            heal=spell_data.get('heal', 0),
+                            atk_float_buff=spell_data.get('atk_float_buff', 0.0),
+                            atk_percent_buff=spell_data.get('atk_percent_buff', 0.0),
+                            atk_float_debuff=spell_data.get('atk_float_debuff', 0.0),
+                            atk_percent_debuff=spell_data.get('atk_percent_debuff', 0.0),
+                            armor_buff=spell_data.get('armor_buff', 0),
+                            armor_debuff=spell_data.get('armor_debuff', 0),
+                            duration=duration,
+                            end_turn=spell_data.get('end_turn', True)
+                        )
+                        spells.append(spell)
+
+                    # Создаем врага
+                    enemy = cls(
+                        name=enemy_data['name'],
+                        hp=enemy_data['hp'],
+                        damage=enemy_data['damage'],
+                        mana=enemy_data['mana'],
+                        armor=enemy_data.get('armor', 0),
+                        monster_class=monster_class,
+                        spells=spells
+                    )
+
+                    enemies.append(enemy)
+
+        except FileNotFoundError:
+            print(f"Файл {file_path} не найден.")
+        except KeyError as e:
+            print(f"Ошибка в структуре JSON: отсутствует ключ {e}")
+        except Exception as e:
+            print(f"Ошибка при загрузке врагов: {e}")
+
+        return enemies
 
 
 class EquipmentSlot(Enum):
@@ -26,14 +174,17 @@ class Item:
                  defense=0, dodge_bonus=0, hp_bonus=0, mana_bonus=0):
         self.name = name
         self.item_type = item_type
-        self.slot_type = slot_type
+        self.slot_type = slot_type if slot_type is not None else []
         self.atk_bonus = atk_bonus
         self.damage_scale = damage_scale
         self.defense = defense
         self.dodge_bonus = dodge_bonus
         self.hp_bonus = hp_bonus
         self.mana_bonus = mana_bonus
-        self.is_two_handed = slot_type == [EquipmentSlot.MAIN_HAND, EquipmentSlot.OFF_HAND]
+        # Проверяем, является ли оружие двуручным
+        self.is_two_handed = (len(self.slot_type) == 2 and
+                              EquipmentSlot.MAIN_HAND in self.slot_type and
+                              EquipmentSlot.OFF_HAND in self.slot_type)
 
     def __str__(self):
         return f"{self.name} ({self.item_type.value})"
@@ -125,8 +276,8 @@ class Character:
         self.equip_starting_weapon()
 
     def add_starting_items(self):
-        # Добавляем 3 зелья лечения
-        health_potion = Item("Зелье лечения", ItemType.CONSUMABLE, None, hp_bonus=100)
+        # Добавляем 3 зелья лечения (используем пустой список для slot_type)
+        health_potion = Item("Зелье лечения", ItemType.CONSUMABLE, [], hp_bonus=100)
         for _ in range(3):
             self.inventory.append(health_potion)
 
@@ -140,8 +291,7 @@ class Character:
         if self.char_class in self._starting_items:
             for item in self._starting_items[self.char_class]:
                 if item.item_type == ItemType.WEAPON:
-                    for slot in item.slot_type:
-                        self.equip_item(item, slot)
+                    self.equip_weapon(item)
 
     def calculate_base_dodge_chance(self):
         # Формула убывающей полезности: 0 ловкости = 0%, 100 ловкости ≈ 60%, 200 ловкости ≈ 90%
@@ -228,29 +378,123 @@ class Character:
         # Базовая мана + бонусы от экипировки
         return self.max_mana + bonuses['mana_bonus']
 
-    def equip_item(self, item, slot):
-        # Проверяем, можно ли экипировать предмет в этот слот
-        if slot not in item.slot_type:
-            print(f"Нельзя экипировать {item.name} в слот {slot.value}")
-            return False
+    def equip_weapon(self, weapon):
+        """Экипирует оружие с учетом типа и занятости слотов"""
+        if weapon.is_two_handed:
+            # Для двуручного оружия
+            if (self.equipment[EquipmentSlot.MAIN_HAND] is None and
+                    self.equipment[EquipmentSlot.OFF_HAND] is None):
+                # Оба слота свободны - экипируем
+                self.equipment[EquipmentSlot.MAIN_HAND] = weapon
+                self.equipment[EquipmentSlot.OFF_HAND] = weapon
+                print(f"Экипировано двуручное оружие: {weapon.name}")
+                return True
+            else:
+                # Слоты заняты - предлагаем выбор
+                print("Оба слота для оружия заняты. Хотите заменить текущее оружие?")
+                print("1 - Да, заменить")
+                print("2 - Нет, отменить")
 
-        # Проверяем, не занят ли слот
-        if self.equipment[slot] is not None:
-            print(f"Слот {slot.value} уже занят предметом {self.equipment[slot].name}")
-            return False
+                try:
+                    choice = int(input("Ваш выбор: "))
+                    if choice == 1:
+                        # Убираем текущее оружие в инвентарь
+                        if self.equipment[EquipmentSlot.MAIN_HAND]:
+                            old_weapon = self.equipment[EquipmentSlot.MAIN_HAND]
+                            self.inventory.append(old_weapon)
+                        if (self.equipment[EquipmentSlot.OFF_HAND] and
+                                self.equipment[EquipmentSlot.OFF_HAND] != self.equipment[EquipmentSlot.MAIN_HAND]):
+                            old_weapon = self.equipment[EquipmentSlot.OFF_HAND]
+                            self.inventory.append(old_weapon)
 
-        # Для двуручного оружия проверяем оба слота
-        if item.is_two_handed:
-            other_hand = EquipmentSlot.OFF_HAND if slot == EquipmentSlot.MAIN_HAND else EquipmentSlot.MAIN_HAND
-            if self.equipment[other_hand] is not None:
-                print(f"Нельзя экипировать двуручное оружие, так как {other_hand.value} занята")
+                        # Экипируем новое оружие
+                        self.equipment[EquipmentSlot.MAIN_HAND] = weapon
+                        self.equipment[EquipmentSlot.OFF_HAND] = weapon
+                        print(f"Экипировано двуручное оружие: {weapon.name}")
+                        return True
+                    else:
+                        print("Экипировка отменена.")
+                        return False
+                except ValueError:
+                    print("Неверный ввод. Экипировка отменена.")
+                    return False
+        else:
+            # Для одноручного оружия
+            available_slots = []
+
+            # Проверяем доступные слоты для этого оружия
+            for slot in weapon.slot_type:
+                if self.equipment[slot] is None:
+                    available_slots.append(slot)
+
+            if available_slots:
+                # Есть свободные слоты - экипируем в первый доступный
+                slot = available_slots[0]
+                self.equipment[slot] = weapon
+                print(f"Экипировано оружие: {weapon.name} в слот {slot.value}")
+                return True
+            else:
+                # Все слоты заняты - предлагаем выбор
+                print("Все подходящие слоты заняты. Выберите слот для замены:")
+                slot_options = []
+
+                for i, slot in enumerate(weapon.slot_type):
+                    print(f"{i + 1} - {slot.value} (сейчас: {self.equipment[slot].name})")
+                    slot_options.append(slot)
+
+                print(f"{len(weapon.slot_type) + 1} - Отменить экипировку")
+
+                try:
+                    choice = int(input("Ваш выбор: "))
+                    if 1 <= choice <= len(weapon.slot_type):
+                        selected_slot = slot_options[choice - 1]
+
+                        # Убираем текущее оружие в инвентарь
+                        old_weapon = self.equipment[selected_slot]
+                        self.inventory.append(old_weapon)
+
+                        # Экипируем новое оружие
+                        self.equipment[selected_slot] = weapon
+                        print(f"Экипировано оружие: {weapon.name} в слот {selected_slot.value}")
+                        return True
+                    else:
+                        print("Экипировка отменена.")
+                        return False
+                except ValueError:
+                    print("Неверный ввод. Экипировка отменена.")
+                    return False
+
+    def equip_armor(self, armor, slot):
+        """Экипирует броню в указанный слот"""
+        if self.equipment[slot] is None:
+            # Слот свободен - экипируем
+            self.equipment[slot] = armor
+            print(f"Экипировано: {armor.name} в слот {slot.value}")
+            return True
+        else:
+            # Слот занят - предлагаем замену
+            print(f"Слот {slot.value} уже занят предметом: {self.equipment[slot].name}")
+            print("Хотите заменить?")
+            print("1 - Да, заменить")
+            print("2 - Нет, отменить")
+
+            try:
+                choice = int(input("Ваш выбор: "))
+                if choice == 1:
+                    # Убираем текущую броню в инвентарь
+                    old_armor = self.equipment[slot]
+                    self.inventory.append(old_armor)
+
+                    # Экипируем новую броню
+                    self.equipment[slot] = armor
+                    print(f"Экипировано: {armor.name} в слот {slot.value}")
+                    return True
+                else:
+                    print("Экипировка отменена.")
+                    return False
+            except ValueError:
+                print("Неверный ввод. Экипировка отменена.")
                 return False
-            self.equipment[other_hand] = item
-
-        # Экипируем предмет
-        self.equipment[slot] = item
-        print(f"Предмет {item.name} экипирован в слот {slot.value}")
-        return True
 
     def unequip_item(self, slot):
         if self.equipment[slot] is None:
@@ -261,9 +505,11 @@ class Character:
         self.equipment[slot] = None
 
         # Для двуручного оружия освобождаем оба слота
-        if item.is_two_handed:
-            other_hand = EquipmentSlot.OFF_HAND if slot == EquipmentSlot.MAIN_HAND else EquipmentSlot.MAIN_HAND
-            self.equipment[other_hand] = None
+        if (item.item_type == ItemType.WEAPON and item.is_two_handed and
+                slot in [EquipmentSlot.MAIN_HAND, EquipmentSlot.OFF_HAND]):
+            other_slot = EquipmentSlot.OFF_HAND if slot == EquipmentSlot.MAIN_HAND else EquipmentSlot.MAIN_HAND
+            if self.equipment[other_slot] == item:
+                self.equipment[other_slot] = None
 
         print(f"Предмет {item.name} снят с слота {slot.value}")
         return item
@@ -325,7 +571,7 @@ class Character:
 def create_character():
     # name = input("Введите имя персонажа: ")
     name = 'Dumpy'
-    char_class = 3
+    char_class = 2
     print('''Выберите класс
         1) Воин
         2) Маг
@@ -347,3 +593,10 @@ def create_character():
 if __name__ == '__main__':
     # Создание персонажа
     hero = create_character()
+
+    # Загружаем врагов из JSON файла
+    enemies = Enemy.load_from_json('enemies.json')
+
+    for enemy in enemies:
+        print(enemy)
+        print("\n" + "=" * 40 + "\n")
