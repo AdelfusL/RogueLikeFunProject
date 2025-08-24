@@ -10,7 +10,7 @@ class Spell:
                  heal: int = 0, atk_float_buff: float = 0.0, atk_percent_buff: float = 0.0,
                  atk_float_debuff: float = 0.0, atk_percent_debuff: float = 0.0,
                  armor_buff: int = 0, armor_debuff: int = 0, evade_buff: float = 0, evade_debuff: float = 0,
-                 duration: int = 0, end_turn: bool = True, aimed_to_self: bool = True ,
+                 duration: int = 0, end_turn: bool = True, aimed_to_self: bool = True,
                  is_buff: bool = False, aimed_to: int = 0):
         self.name = name
         self.damage = damage
@@ -28,7 +28,7 @@ class Spell:
         self.end_turn = end_turn
         self.aimed_to_self = aimed_to_self
         self.is_buff = is_buff
-        self.aimed_to = aimed_to # aimed_to мог бы пригодиться для реализовать множественных цели или более сложные схемы выбора цели для врагов. но пока не используется
+        self.aimed_to = aimed_to  # aimed_to мог бы пригодиться для реализовать множественных цели или более сложные схемы выбора цели для врагов. но пока не используется
 
     def __str__(self):
         effects = []
@@ -62,6 +62,7 @@ class Spell:
             effects.append("направлено на врага")
 
         return f"{self.name} ({', '.join(effects)})"
+
 
 class EquipmentSlot(Enum):
     MAIN_HAND = "правая рука"
@@ -102,10 +103,6 @@ class Item:
         return f"{self.name} ({self.item_type.value})"
 
 
-
-
-
-
 class Effect:
     def __init__(self, name: str, duration: int,
                  atk_float_buff: float = 0.0, atk_percent_buff: float = 0.0,
@@ -144,80 +141,75 @@ class Effect:
 
         return f"{self.name} ({', '.join(effects)}), длительность: {self.duration} ходов"
 
+
 class Character:
-    _class_bonuses = {
-        'warrior': {'str': 20, 'dex': 5, 'mag': 0, 'hp_bonus': 20, 'main_attr': 'str', 'dodge_multiplier': 0.7},
-        'mage': {'str': 5, 'dex': 5, 'mag': 15, 'hp_bonus': 10, 'main_attr': 'mag', 'dodge_multiplier': 0.5},
-        'assassin': {'str': 10, 'dex': 15, 'mag': 5, 'hp_bonus': 5, 'main_attr': 'dex', 'dodge_multiplier': 1.0}
-    }
+    _heroes_data = {}
+    _loaded_heroes = {}
 
-    _starting_items = {
-        'warrior': [
-            Item("Длинный меч", ItemType.WEAPON, [EquipmentSlot.MAIN_HAND], atk_bonus=10)
-        ],
-        'mage': [
-            Item("Посох мага", ItemType.WEAPON, [EquipmentSlot.MAIN_HAND], atk_bonus=5, damage_scale=0.1)
-        ],
-        'assassin': [
-            Item("Кинжал вдовца", ItemType.WEAPON, [EquipmentSlot.MAIN_HAND], atk_bonus=5),
-            Item("Кинжал сироты", ItemType.WEAPON, [EquipmentSlot.OFF_HAND], atk_bonus=5)
-        ]
-    }
+    @classmethod
+    def load_heroes_from_json(cls, file_path: str, specific_classes: List[str] = None):  # List[str] = ['warrior', 'mage']
+        """Загружает героев из JSON файла, опционально только указанные классы"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+                cls._heroes_data = {}
+                cls._loaded_heroes = {}
 
-    _starting_spells = {
-        'warrior': [
-            Spell("Силовой удар", damage=20, mana_cost=15, end_turn=True, aimed_to_self=False),
-            Spell("Боевой клич", atk_float_buff=5, duration=2, mana_cost=20, end_turn=True, aimed_to_self=True)
-        ],
-        'mage': [
-            Spell("Огненный шар", damage=25, mana_cost=20, end_turn=False, aimed_to_self=False),
-            Spell("Ледяная броня", armor_buff=5, duration=3, mana_cost=15, end_turn=False, aimed_to_self=True)
-        ],
-        'assassin': [
-            Spell("Смертельный удар", damage=22, mana_cost=18, end_turn=True, aimed_to_self=False),
-            Spell("Теневой клинок", atk_float_buff=3, evade_buff=0.1, duration=2, mana_cost=20, end_turn=True,
-                  aimed_to_self=True)
-        ]
-    }
+                for hero_data in data.get('heroes', []):
+                    hero_class = hero_data['class']
+
+                    if specific_classes and hero_class not in specific_classes:
+                        continue
+
+                    cls._heroes_data[hero_class] = hero_data
+                    cls._loaded_heroes[hero_class] = hero_data
+
+                if not cls._heroes_data:
+                    print("Предупреждение: не загружено ни одного класса героев!")
+
+        except FileNotFoundError:
+            print(f"Файл {file_path} не найден.")
+        except Exception as e:
+            print(f"Ошибка при загрузке героев: {e}")
 
     def __init__(self, name, char_class):
         self.name = name
 
-        if isinstance(char_class, str):
-            try:
-                char_class = int(char_class)
-            except ValueError:
-                pass
+        # Загружаем героев, если еще не загружены
+        if not self._heroes_data:
+            self.load_heroes_from_json('heroes.json')
 
-        if char_class == 1:
-            self.char_class = 'warrior'
-        elif char_class == 2:
-            self.char_class = 'mage'
-        elif char_class == 3:
-            self.char_class = 'assassin'
-        else:
-            self.char_class = char_class.lower()
+        # Проверяем, что класс существует в загруженных данных
+        if char_class not in self._heroes_data:
+            raise ValueError(f"Недопустимый класс персонажа: {char_class}")
 
-        if self.char_class not in self._class_bonuses:
-            raise ValueError("Недопустимый класс персонажа")
+        self.char_class = char_class
 
-        bonuses = self._class_bonuses[self.char_class]
+        # Получаем данные героя
+        hero_data = self._heroes_data[self.char_class]
+        bonuses = hero_data['bonuses']
+
         self.strength = bonuses['str']
         self.dexterity = bonuses['dex']
         self.magic = bonuses['mag']
         self.main_attr = bonuses['main_attr']
         self.dodge_multiplier = bonuses['dodge_multiplier']
         self.is_hero = True
-        self.max_hp = self.strength * 10 + bonuses['hp_bonus']
+        self.alive = True  # Добавляем флаг живой/мертвый
+        self.max_hp = self.strength * 10 + bonuses.get('hp_bonus', 0)
         self.hp = self.max_hp
         self.max_mana = self.magic * 10
         self.mana = self.max_mana
+
+        # Бонус восстановления маны (по умолчанию 1.0)
+        self.mana_amplification_bonus = bonuses.get('mana_amplification_bonus', 1.0)
 
         self.spell_damage = 0
         self.atk_scale = 1.0
         self.debuff_atk_scale = 1.0
         self.float_buffs = 0
 
+        # Экипировка
         self.equipment = {
             EquipmentSlot.MAIN_HAND: None,
             EquipmentSlot.OFF_HAND: None,
@@ -233,34 +225,82 @@ class Character:
         self.inventory = []
         self.spells = []
 
-        self.add_starting_items()
-        self.add_starting_spells()
-        self.equip_starting_weapon()
+        self.add_starting_items(hero_data.get('starting_items', []))
+        self.add_starting_spells(hero_data.get('starting_spells', []))
+        self.equip_starting_weapon(hero_data.get('starting_items', []))
 
-        # Добавляем параметр для восстановления маны
-        self.mana_amplification_bonus = 1.0
-        if self.char_class == 'mage':
-            self.mana_amplification_bonus = 1.2
+    def __str__(self):
+        class_name = self._heroes_data.get(self.char_class, {}).get('name', self.char_class)
+        status = "живой" if self.alive else "мертвый"
+        return (f"Персонаж: {self.name} ({status})\n"
+                f"Класс: {class_name}\n"
+                f"Здоровье: {self.hp:.1f}/{self.get_effective_hp():.1f}\n"
+                f"Мана: {self.mana:.1f}/{self.get_effective_mana():.1f}\n"
+                f"Сила: {self.strength}\n"
+                f"Ловкость: {self.dexterity}\n"
+                f"Магия: {self.magic}\n"
+                f"Урон: {self.calculate_damage():.1f}\n"
+                f"Уклонение: {self.get_effective_dodge_chance():.1f}%")
 
-    def add_starting_items(self):
+    def add_starting_items(self, starting_items_data):
+        # Добавляем зелья лечения
         health_potion = Item("Зелье лечения", ItemType.CONSUMABLE, [], hp_bonus=100)
         for _ in range(3):
             self.inventory.append(health_potion)
 
-        if self.char_class in self._starting_items:
-            for item in self._starting_items[self.char_class]:
-                self.inventory.append(item)
+        # Добавляем стартовые предметы из JSON
+        for item_data in starting_items_data:
+            slot_type = [EquipmentSlot[slot] for slot in item_data.get('slot_type', [])]
 
-    def add_starting_spells(self):
-        if self.char_class in self._starting_spells:
-            for spell in self._starting_spells[self.char_class]:
-                self.spells.append(spell)
+            item = Item(
+                name=item_data['name'],
+                item_type=ItemType[item_data['item_type']],
+                slot_type=slot_type,
+                atk_bonus=item_data.get('atk_bonus', 0),
+                damage_scale=item_data.get('damage_scale', 0),
+                defense=item_data.get('defense', 0),
+                dodge_bonus=item_data.get('dodge_bonus', 0),
+                hp_bonus=item_data.get('hp_bonus', 0),
+                mana_bonus=item_data.get('mana_bonus', 0)
+            )
+            self.inventory.append(item)
 
-    def equip_starting_weapon(self):
-        if self.char_class in self._starting_items:
-            for item in self._starting_items[self.char_class]:
-                if item.item_type == ItemType.WEAPON:
-                    self.equip_weapon(item)
+    def add_starting_spells(self, starting_spells_data):
+        for spell_data in starting_spells_data:
+            spell = Spell(
+                name=spell_data['name'],
+                damage=spell_data.get('damage', 0),
+                mana_cost=spell_data.get('mana_cost', 0),
+                heal=spell_data.get('heal', 0),
+                atk_float_buff=spell_data.get('atk_float_buff', 0.0),
+                atk_percent_buff=spell_data.get('atk_percent_buff', 0.0),
+                atk_float_debuff=spell_data.get('atk_float_debuff', 0.0),
+                atk_percent_debuff=spell_data.get('atk_percent_debuff', 0.0),
+                armor_buff=spell_data.get('armor_buff', 0),
+                armor_debuff=spell_data.get('armor_debuff', 0),
+                evade_buff=spell_data.get('evade_buff', 0),
+                evade_debuff=spell_data.get('evade_debuff', 0),
+                duration=spell_data.get('duration', 0),
+                end_turn=spell_data.get('end_turn', True),
+                aimed_to_self=spell_data.get('aimed_to_self', True),
+                is_buff=spell_data.get('is_buff', False),
+                aimed_to=spell_data.get('aimed_to', 0)
+            )
+            self.spells.append(spell)
+
+    def equip_starting_weapon(self, starting_items_data):
+        for item_data in starting_items_data:
+            if item_data['item_type'] == 'WEAPON':
+                slot_type = [EquipmentSlot[slot] for slot in item_data.get('slot_type', [])]
+
+                item = Item(
+                    name=item_data['name'],
+                    item_type=ItemType[item_data['item_type']],
+                    slot_type=slot_type,
+                    atk_bonus=item_data.get('atk_bonus', 0),
+                    damage_scale=item_data.get('damage_scale', 0)
+                )
+                self.equip_weapon(item)
 
     def calculate_base_dodge_chance(self):
         return 99 * (1 - math.exp(-0.024 * self.dexterity))
@@ -513,10 +553,12 @@ class Enemy:
         self.spells = spells
         self.evade = evade
         self.is_hero = False
+        self.alive = True  # Добавляем флаг живой/мертвый
 
     def __str__(self):
+        status = "живой" if self.alive else "мертвый"
         spells_info = "\n  ".join([str(spell) for spell in self.spells])
-        return (f"{self.name} (Класс: {self.monster_class.value})\n"
+        return (f"{self.name} (Класс: {self.monster_class.value}, {status})\n"
                 f"  Здоровье: {self.hp}/{self.max_hp}\n"
                 f"  Урон: {self.damage}\n"
                 f"  Мана: {self.mana}/{self.max_mana}\n"
@@ -590,6 +632,7 @@ class Enemy:
 
         return enemies
 
+
 class Battle:
     def __init__(self, hero: Character, enemies: List[Enemy]):
         self.hero = hero
@@ -616,17 +659,36 @@ class Battle:
         if self.battle_ended:
             return True
 
-        if self.hero.hp <= 0:
+        if not self.hero.alive or self.hero.hp <= 0:
             print("Герой побежден! Бой окончен.")
             return True
 
-        if all(enemy.hp <= 0 for enemy in self.enemies):
+        if all(not enemy.alive or enemy.hp <= 0 for enemy in self.enemies):
+            print("Все враги побеждены! Победа героя!")
             return True
 
         return False
 
     def next_turn(self):
+        # Пропускаем мертвых участников
+        while (self.current_turn_index < len(self.participants) and
+               (not self.participants[self.current_turn_index].alive or
+                self.participants[self.current_turn_index].hp <= 0)):
+            self.current_turn_index = (self.current_turn_index + 1) % len(self.participants)
+            if self.current_turn_index == 0:
+                self.turn_count += 1
+
+        if self.is_battle_over():
+            return
+
         current_unit = self.participants[self.current_turn_index]
+
+        # Проверяем, не умер ли участник от эффектов до начала хода
+        if not current_unit.alive or current_unit.hp <= 0:
+            self.current_turn_index = (self.current_turn_index + 1) % len(self.participants)
+            if self.current_turn_index == 0:
+                self.turn_count += 1
+            return
 
         if self.current_turn_index == 0:
             mana_regen = self.hero.magic * self.hero.mana_amplification_bonus
@@ -643,6 +705,14 @@ class Battle:
 
         self.update_effects(self.current_turn_index)
 
+        # Проверяем, не умер ли участник после обновления эффектов
+        if not current_unit.alive or current_unit.hp <= 0:
+            print(f"{current_unit.name} умер от эффектов в начале хода!")
+            self.current_turn_index = (self.current_turn_index + 1) % len(self.participants)
+            if self.current_turn_index == 0:
+                self.turn_count += 1
+            return
+
         if self.effects[self.current_turn_index]:
             print("Активные эффекты:")
             for effect in self.effects[self.current_turn_index]:
@@ -654,9 +724,14 @@ class Battle:
             self.enemy_turn(current_unit)
 
         self.current_turn_index = (self.current_turn_index + 1) % len(self.participants)
-        self.turn_count += 1
+        if self.current_turn_index == 0:
+            self.turn_count += 1
 
     def update_effects(self, participant_index):
+        participant = self.participants[participant_index]
+        if not participant.alive or participant.hp <= 0:
+            return
+
         effects_to_remove = []
         for effect in self.effects[participant_index]:
             effect.duration -= 1
@@ -670,11 +745,10 @@ class Battle:
     def hero_turn(self):
         turn_ended = False
 
-
-        while not turn_ended:
-            print(f"\n=== Ход героя ({hero.name}) ===")
-            print(f"Здоровье: {hero.hp:.1f}/{hero.max_hp}")
-            print(f"Мана: {hero.mana:.1f}/{hero.max_mana}")
+        while not turn_ended and not self.is_battle_over():
+            print(f"\n=== Ход героя ({self.hero.name}) ===")
+            print(f"Здоровье: {self.hero.hp:.1f}/{self.hero.max_hp}")
+            print(f"Мана: {self.hero.mana:.1f}/{self.hero.max_mana}")
             print("\nВыберите действие:")
             print("1 - Обычная атака")
             print("2 - Использовать заклинание")
@@ -754,7 +828,7 @@ class Battle:
                 print("Пожалуйста, введите число!")
 
     def select_target(self):
-        living_enemies = [i for i, enemy in enumerate(self.enemies, 1) if enemy.hp > 0]
+        living_enemies = [i for i, enemy in enumerate(self.enemies, 1) if enemy.alive and enemy.hp > 0]
 
         if not living_enemies:
             return None
@@ -776,6 +850,10 @@ class Battle:
             return None
 
     def hero_attack(self, target):
+        if not target.alive or target.hp <= 0:
+            print(f"{target.name} уже мертв!")
+            return
+
         dodge_chance = target.evade if isinstance(target, Enemy) else target.get_effective_dodge_chance()
         if random.random() * 100 < dodge_chance:
             print(f"{target.name} увернулся от атаки!")
@@ -792,13 +870,13 @@ class Battle:
               f"Осталось HP: {target.hp:.1f}/{target.max_hp}")
 
         if target.hp <= 0:
-            # удаляем цель и прекращаем дальнейшую обработку заклинания,
-            # чтобы не обращаться к self.effects по невалидному индексу
-            self.remove_dead_target(target)
-            return
+            self.mark_target_dead(target)
 
     def calculate_damage_with_effects(self, participant_index):
         participant = self.participants[participant_index]
+        if not participant.alive or participant.hp <= 0:
+            return 0
+
         if isinstance(participant, Character):
             base_damage = participant.calculate_damage()
         else:
@@ -832,6 +910,11 @@ class Battle:
                 target = self.hero
             target_index = self.participants.index(target)
 
+        # проверяем, жива ли цель
+        if not target.alive or target.hp <= 0:
+            print(f"{target.name} уже мертв!")
+            return
+
         # урон заклинанием через ОБЩУЮ ФОРМУЛУ
         if spell.damage > 0:
             dodge_chance = target.get_effective_dodge_chance() if isinstance(target, Character) else target.evade
@@ -860,7 +943,7 @@ class Battle:
                   f"Осталось HP: {target.hp:.1f}/{target.max_hp}")
 
             if target.hp <= 0:
-                self.remove_dead_target(target)
+                self.mark_target_dead(target)
 
         # лечение
         if spell.heal > 0:
@@ -903,11 +986,11 @@ class Battle:
             else:
                 if spell.is_buff:
                     # случайный союзник-враг, кроме себя
-                    allies = [u for u in self.participants if not u.is_hero and u != enemy]
+                    allies = [u for u in self.participants if not u.is_hero and u != enemy and u.alive and u.hp > 0]
                     return random.choice(allies) if allies else enemy
                 else:
                     # атакующие заклинания всегда на героя
-                    return self.hero
+                    return self.hero if self.hero.alive and self.hero.hp > 0 else None
 
         # --- Создаем очередь заклинаний ---
         queue = []
@@ -928,7 +1011,7 @@ class Battle:
                 queue.remove(spell_to_end)
             queue.append(spell_to_end)
 
-        # --- Очистка очереди по мана ---
+        # --- Очистка очереди чтобы маны хватило ---
         def clean_queue_by_mana(queue, enemy):
             while queue and sum(s.mana_cost for s in queue) > enemy.mana:
                 # удаляем самое дешевое заклинание
@@ -949,16 +1032,23 @@ class Battle:
         # --- Применяем заклинания ---
         if queue:
             for spell in queue:
-                if enemy.mana >= spell.mana_cost:
+                if enemy.mana >= spell.mana_cost and not self.is_battle_over():
                     target = select_target_for_spell(spell)
+                    if target is None:
+                        continue
                     enemy.mana -= spell.mana_cost
                     self.use_spell(enemy, spell)
+                    if self.is_battle_over():
+                        break
         else:
             # Если заклинаний нет или маны не хватает — обычная атака
-            self.enemy_attack(enemy)
+            if not self.is_battle_over():
+                self.enemy_attack(enemy)
 
     def enemy_attack(self, enemy):
         target = self.hero
+        if not target.alive or target.hp <= 0:
+            return
 
         dodge_chance = self.hero.get_effective_dodge_chance()
         if random.random() * 100 < dodge_chance:
@@ -972,62 +1062,70 @@ class Battle:
         print(f"{enemy.name} атакует {self.hero.name} и наносит {actual_damage} урона!")
 
         if self.hero.hp <= 0:
-            print(f"{self.hero.name} побежден!")
+            self.mark_target_dead(self.hero)
 
-    def remove_dead_target(self, target):
-        """Удаление мёртвого юнита и корректная проверка окончания боя."""
-        if target in self.participants:
-            idx = self.participants.index(target)
-            self.participants.pop(idx)
-
-            # корректно удаляем соответствующий слот эффектов
-            if 0 <= idx < len(self.effects):
-                self.effects.pop(idx)
-
-            # если удалён враг, удаляем его и из self.enemies (чтобы номера целей сдвигались)
-            if isinstance(target, Enemy):
-                try:
-                    self.enemies.remove(target)
-                except ValueError:
-                    pass
-
+    def mark_target_dead(self, target):
+        """Помечаем цель как мёртвую вместо удаления из списков"""
+        if target.hp <= 0:
+            target.alive = False
+            target.hp = 0
             print(f"{target.name} побежден!")
 
-        # если умер герой — ставим флаг конца боя и выводим сообщение
-        if isinstance(target, Character) and getattr(target, "is_hero", False):
-            self.battle_ended = True
-            print("Герой побежден! Бой окончен.")
-            return True
+            if isinstance(target, Character) and getattr(target, "is_hero", False):
+                self.battle_ended = True
+                print("Герой побежден! Бой окончен.")
+                return True
 
-        # проверка: остались ли живые враги
-        enemies_alive = [e for e in self.enemies if e.hp > 0]
-        if not enemies_alive:
-            print("Все враги побеждены! Победа героя!")
-            self.battle_ended = True
-            return True
+            if all(not enemy.alive or enemy.hp <= 0 for enemy in self.enemies):
+                self.battle_ended = True
+                print("Все враги побеждены! Победа героя!")
+                return True
 
         return False
 
 
 def create_character():
-    name = 'Dumpy'
-    char_class = 2
-    print('''Выберите класс
-        1) Воин
-        2) Маг
-        3) Ассасин
-        Ваш выбор: ''')
+    # Сначала загружаем героев из JSON
+    Character.load_heroes_from_json('heroes.json')
+
+    # Получаем список доступных классов
+    available_classes = list(Character._loaded_heroes.keys())
+
+    name = input("Назовитесь: ")
+
+    print("\nВыберите класс:")
+    for i, class_key in enumerate(available_classes, 1):
+        class_data = Character._loaded_heroes[class_key]
+        print(f"{i}) {class_data['name']} ({class_key})")
 
     try:
-        character = Character(name, char_class)
-        print("\nПерсонаж создан успешно!")
-        print(character)
-        character.show_equipment()
-        character.show_inventory()
-        character.show_spells()
-        return character
-    except ValueError as e:
-        print(f"Ошибка: {e}")
+        choice = int(input("Ваш выбор: "))
+        if 1 <= choice <= len(available_classes):
+            selected_class = available_classes[choice - 1]
+
+            character = Character(name, selected_class)
+            print("\nПерсонаж создан успешно!")
+            print(f"Имя: {character.name}")
+            print(f"Класс: {Character._loaded_heroes[selected_class]['name']}")
+            print(f"Здоровье: {character.hp}/{character.max_hp}")
+            print(f"Мана: {character.mana}/{character.max_mana}")
+            print(f"Сила: {character.strength}")
+            print(f"Ловкость: {character.dexterity}")
+            print(f"Магия: {character.magic}")
+
+            character.show_equipment()
+            character.show_inventory()
+            character.show_spells()
+            return character
+        else:
+            print("Неверный выбор класса!")
+            return None
+
+    except ValueError:
+        print("Пожалуйста, введите число!")
+        return None
+    except Exception as e:
+        print(f"Ошибка при создании персонажа: {e}")
         return None
 
 
