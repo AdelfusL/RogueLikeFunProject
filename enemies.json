@@ -1,0 +1,84 @@
+{
+  "enemies": [
+    {
+      "name": "Гоблин-разведчик",
+      "hp": 50,
+      "damage": 8,
+      "mana": 20,
+      "evade": 10,
+      "armor": 2,
+      "monster_class": "F",
+      "spells": [
+        {
+          "name": "Быстрый удар",
+          "damage": 12,
+          "mana_cost": 5,
+          "end_turn": false,
+          "aimed_to_self": false
+        },
+        {
+          "name": "Боевой клич",
+          "atk_float_buff": 2.0,
+          "atk_percent_buff": 0.1,
+          "mana_cost": 8,
+          "end_turn": false,
+          "aimed_to_self": true
+        }
+      ]
+    },
+    {
+      "name": "Скелет-воин",
+      "hp": 60,
+      "damage": 10,
+      "mana": 15,
+      "evade": 5,
+      "armor": 5,
+      "monster_class": "F",
+      "spells": [
+        {
+          "name": "Костяной щит",
+          "heal": 10,
+          "armor_buff": 3,
+          "mana_cost": 8,
+          "end_turn": true,
+          "aimed_to_self": true
+        },
+        {
+          "name": "Ржавый клинок",
+          "damage": 15,
+          "atk_float_debuff": -3.5,
+          "armor_debuff": -2,
+          "mana_cost": 10,
+          "end_turn": true,
+          "aimed_to_self": false
+        }
+      ]
+    },
+    {
+      "name": "Лесной волк",
+      "hp": 45,
+      "damage": 12,
+      "mana": 10,
+      "evade": 15,
+      "armor": 0,
+      "monster_class": "F",
+      "spells": [
+        {
+          "name": "Смертельный укус",
+          "damage": 18,
+          "atk_percent_buff": 0.2,
+          "mana_cost": 6,
+          "end_turn": false,
+          "aimed_to_self": false
+        },
+        {
+          "name": "Устрашающий вой",
+          "atk_percent_debuff": -0.1,
+          "mana_cost": 8,
+          "end_turn": true,
+          "aimed_to_self": false
+        }
+      ]
+    }
+  ]
+}
