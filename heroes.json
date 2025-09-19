@@ -6,7 +6,7 @@
       "bonuses": {
         "str": 20,
         "dex": 5,
-        "mag": 0,
+        "mag": 1,
         "hp_bonus": 20,
         "main_attr": "str",
         "dodge_multiplier": 0.7
@@ -14,24 +14,22 @@
       "starting_items": [
         {
           "name": "Длинный меч",
-          "item_type": "WEAPON",
-          "slot_type": ["MAIN_HAND"],
-          "atk_bonus": 10
+          "item_type": "WEAPON"
         }
       ],
       "starting_spells": [
         {
           "name": "Силовой удар",
           "damage": 20,
-          "mana_cost": 15,
+          "mana_cost": 5,
           "end_turn": true,
           "aimed_to_self": false
         },
         {
           "name": "Боевой клич",
           "atk_float_buff": 5,
-          "duration": 2,
-          "mana_cost": 20,
+          "duration": 5,
+          "mana_cost": 5,
           "end_turn": true,
           "aimed_to_self": true
         }
@@ -52,10 +50,7 @@
       "starting_items": [
         {
           "name": "Посох мага",
-          "item_type": "WEAPON",
-          "slot_type": ["MAIN_HAND"],
-          "atk_bonus": 5,
-          "damage_scale": 0.1
+          "item_type": "WEAPON"
         }
       ],
       "starting_spells": [
@@ -90,23 +85,19 @@
       "starting_items": [
         {
           "name": "Кинжал вдовца",
-          "item_type": "WEAPON",
-          "slot_type": ["MAIN_HAND"],
-          "atk_bonus": 5
+          "item_type": "WEAPON"
         },
         {
           "name": "Кинжал сироты",
-          "item_type": "WEAPON",
-          "slot_type": ["OFF_HAND"],
-          "atk_bonus": 5
+          "item_type": "WEAPON"
         }
       ],
       "starting_spells": [
         {
           "name": "Смертельный удар",
           "damage": 22,
-          "mana_cost": 18,
-          "end_turn": true,
+          "mana_cost": 10,
+          "end_turn": false,
           "aimed_to_self": false
         },
         {
@@ -114,8 +105,8 @@
           "atk_float_buff": 3,
           "evade_buff": 0.1,
           "duration": 2,
-          "mana_cost": 20,
-          "end_turn": true,
+          "mana_cost": 5,
+          "end_turn": false,
           "aimed_to_self": true
         }
       ]
@@ -135,10 +126,7 @@
       "starting_items": [
         {
           "name": "Посох МАГИ",
-          "item_type": "WEAPON",
-          "slot_type": ["MAIN_HAND"],
-          "atk_bonus": 5,
-          "damage_scale": 0.5
+          "item_type": "WEAPON"
         }
       ],
       "starting_spells": [

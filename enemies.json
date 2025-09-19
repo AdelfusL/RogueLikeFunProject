@@ -73,7 +73,6 @@
         },
         {
           "name": "Устрашающий вой",
-          "atk_float_buff": 2.5,
           "atk_percent_debuff": -0.1,
           "mana_cost": 8,
           "end_turn": true,
